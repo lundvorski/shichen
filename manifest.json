@@ -1,0 +1,15 @@
+{
+  "name": "時辰 Shichen",
+  "short_name": "時辰",
+  "start_url": "index.html",
+  "display": "standalone",
+  "background_color": "#fcfcfc",
+  "theme_color": "#fcfcfc",
+  "icons": [
+    {
+      "src": "https://cdn-icons-png.flaticon.com/512/484/484561.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
