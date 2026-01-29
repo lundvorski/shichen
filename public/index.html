@@ -42,7 +42,6 @@
             width: 100%; display: flex; flex-direction: column; align-items: center; gap: 1rem;
         }
 
-        /* Progress Bar - Increased height slightly for better character framing */
         .progress-wrapper {
             position: relative;
             width: 75vw; max-width: 1100px; height: 32vh; 
@@ -62,11 +61,10 @@
         .shichen-char {
             font-size: clamp(7rem, 18vw, 16rem);
             z-index: 2; font-weight: bold; letter-spacing: -2px;
-            padding-bottom: 10px; /* Prevents bottom cutoff */
+            padding-bottom: 10px;
             text-shadow: 0 2px 10px rgba(0,0,0,0.05);
         }
 
-        /* Clocks and Tasks - Enhanced Visibility */
         .western-time {
             font-size: clamp(2rem, 6vw, 4rem);
             font-weight: 300; letter-spacing: 10px; opacity: 0.9;
@@ -83,17 +81,61 @@
             text-shadow: 0 1px 1px var(--shadow-subtle);
         }
 
-        /* Schedule Drawer */
         #schedule-overlay {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: var(--glass);
             backdrop-filter: blur(25px); -webkit-backdrop-filter: blur(25px);
             display: none; justify-content: center; align-items: center;
-            z-index: 10; cursor: pointer;
+            z-index: 10;
+        }
+
+        .schedule-content {
+            width: 90%; max-width: 600px;
+            position: relative;
+        }
+
+        .button-group {
+            position: absolute;
+            top: -50px;
+            right: 0;
+            display: flex;
+            gap: 10px;
+        }
+
+        .edit-button, .cancel-button {
+            background: rgba(128, 128, 128, 0.15);
+            border: none;
+            padding: 10px 20px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-size: 1rem;
+            color: var(--text-main);
+            transition: background 0.3s;
+        }
+
+        .edit-button:hover, .cancel-button:hover {
+            background: rgba(128, 128, 128, 0.25);
+        }
+
+        .cancel-button {
+            display: none;
+            background: rgba(255, 100, 100, 0.2);
+        }
+
+        .save-indicator {
+            position: absolute;
+            top: -50px;
+            left: 0;
+            padding: 10px 20px;
+            border-radius: 20px;
+            font-size: 0.9rem;
+            opacity: 0;
+            transition: opacity 0.3s;
+            background: rgba(100, 200, 100, 0.2);
         }
 
         .schedule-table {
-            width: 90%; max-width: 600px;
+            width: 100%;
             border-collapse: separate; border-spacing: 0 8px;
         }
 
@@ -106,11 +148,27 @@
         .schedule-table td:first-child {
             border-radius: 12px 0 0 12px;
             width: 80px; text-align: center;
-            background: rgba(0,0,0,0.05); /* Darker pocket for the pastel char */
+            background: rgba(0,0,0,0.05);
         }
 
         .schedule-table td:last-child {
             border-radius: 0 12px 12px 0;
+        }
+
+        .schedule-table input {
+            width: 100%;
+            background: transparent;
+            border: none;
+            font-size: 1.3rem;
+            color: var(--text-main);
+            font-family: inherit;
+            padding: 0;
+        }
+
+        .schedule-table input:focus {
+            outline: 2px solid rgba(255, 157, 0, 0.5);
+            border-radius: 4px;
+            padding: 2px 4px;
         }
 
         .active-row td {
@@ -124,6 +182,8 @@
             .shichen-char { font-size: 6.5rem !important; }
             .western-time { letter-spacing: 4px; font-size: 2.2rem !important; }
             .current-task { font-size: 1.3rem; padding: 8px 20px; }
+            .button-group { top: -45px; }
+            .edit-button, .cancel-button { font-size: 0.9rem; padding: 8px 16px; }
         }
     </style>
 </head>
@@ -138,13 +198,19 @@
     <div class="current-task" id="task-now">...</div>
 </div>
 
-<div id="schedule-overlay" onclick="toggleSchedule()">
-    <table class="schedule-table" id="table-body">
-        </table>
+<div id="schedule-overlay">
+    <div class="schedule-content">
+        <div class="save-indicator" id="save-indicator">Saved ✓</div>
+        <div class="button-group">
+            <button class="cancel-button" id="cancel-btn" onclick="cancelEdit(event)">Cancel</button>
+            <button class="edit-button" id="edit-btn" onclick="toggleEdit(event)">Edit</button>
+        </div>
+        <table class="schedule-table" id="table-body"></table>
+    </div>
 </div>
 
 <script>
-    const shichenData = [
+    let shichenData = [
         { char: '子', color: '#a2b9d6', task: '禮' },
         { char: '丑', color: '#92a3b5', task: '休' },
         { char: '寅', color: '#b5a2bd', task: '休' },
@@ -159,9 +225,109 @@
         { char: '亥', color: '#8e97b0', task: '經、煉' }
     ];
 
+    let isEditing = false;
+    let originalData = [];
+
+    // Load data from server
+    async function loadData() {
+        try {
+            const response = await fetch('/api/schedule');
+            const tasks = await response.json();
+            shichenData.forEach((item, i) => {
+                if (tasks[i] !== undefined) {
+                    item.task = tasks[i];
+                }
+            });
+            const index = getCurrentIndex();
+            renderTable(index);
+            update();
+        } catch (err) {
+            console.error('Error loading data:', err);
+        }
+    }
+
+    async function saveData() {
+        try {
+            const tasks = shichenData.map(d => d.task);
+            const response = await fetch('/api/schedule', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(tasks)
+            });
+            
+            if (response.ok) {
+                showSaveIndicator();
+            } else {
+                alert('Failed to save data');
+            }
+        } catch (err) {
+            console.error('Error saving data:', err);
+            alert('Failed to save data');
+        }
+    }
+
+    function showSaveIndicator() {
+        const indicator = document.getElementById('save-indicator');
+        indicator.style.opacity = '1';
+        setTimeout(() => {
+            indicator.style.opacity = '0';
+        }, 2000);
+    }
+
     function toggleSchedule() {
+        if (isEditing) return;
         const overlay = document.getElementById('schedule-overlay');
         overlay.style.display = (overlay.style.display === 'flex') ? 'none' : 'flex';
+    }
+
+    function toggleEdit(event) {
+        event.stopPropagation();
+        
+        if (!isEditing) {
+            // Start editing
+            isEditing = true;
+            originalData = shichenData.map(d => ({ ...d }));
+            const btn = document.getElementById('edit-btn');
+            const cancelBtn = document.getElementById('cancel-btn');
+            btn.textContent = 'Save';
+            btn.style.background = 'rgba(255, 157, 0, 0.3)';
+            cancelBtn.style.display = 'block';
+        } else {
+            // Save
+            isEditing = false;
+            const btn = document.getElementById('edit-btn');
+            const cancelBtn = document.getElementById('cancel-btn');
+            btn.textContent = 'Edit';
+            btn.style.background = 'rgba(128, 128, 128, 0.15)';
+            cancelBtn.style.display = 'none';
+            saveData();
+        }
+        
+        const index = getCurrentIndex();
+        renderTable(index);
+        update();
+    }
+
+    function cancelEdit(event) {
+        event.stopPropagation();
+        isEditing = false;
+        
+        // Restore original data
+        shichenData = originalData.map(d => ({ ...d }));
+        
+        const btn = document.getElementById('edit-btn');
+        const cancelBtn = document.getElementById('cancel-btn');
+        btn.textContent = 'Edit';
+        btn.style.background = 'rgba(128, 128, 128, 0.15)';
+        cancelBtn.style.display = 'none';
+        
+        const index = getCurrentIndex();
+        renderTable(index);
+        update();
+    }
+
+    function updateTask(index, value) {
+        shichenData[index].task = value;
     }
 
     function updateFavicon(char, color) {
@@ -178,19 +344,27 @@
 
     let lastChar = "";
 
+    function getCurrentIndex() {
+        const now = new Date();
+        const h = now.getHours();
+        return Math.floor((h + 1) / 2) % 12;
+    }
+
     function update() {
         const now = new Date();
         const h = now.getHours();
         const m = now.getMinutes();
         const s = now.getSeconds();
 
-        let index = Math.floor((h + 1) / 2) % 12;
+        let index = getCurrentIndex();
         const current = shichenData[index];
 
         if (current.char !== lastChar) {
             updateFavicon(current.char, current.color);
             lastChar = current.char;
-            renderTable(index);
+            if (!isEditing) {
+                renderTable(index);
+            }
         }
 
         let startHour = (index * 2) - 1;
@@ -215,11 +389,23 @@
         tableBody.innerHTML = shichenData.map((d, i) => `
             <tr class="${i === activeIndex ? 'active-row' : ''}">
                 <td style="color:${d.color}; text-shadow: 1px 1px 0px rgba(0,0,0,0.2);">${d.char}</td>
-                <td>${d.task}</td>
+                <td>
+                    ${isEditing 
+                        ? `<input type="text" value="${d.task}" onchange="updateTask(${i}, this.value)" onclick="event.stopPropagation()">` 
+                        : d.task
+                    }
+                </td>
             </tr>
         `).join('');
     }
 
+    document.getElementById('schedule-overlay').addEventListener('click', function(e) {
+        if (e.target === this && !isEditing) {
+            toggleSchedule();
+        }
+    });
+
+    loadData();
     setInterval(update, 1000);
     update();
 
@@ -229,3 +415,16 @@
 </script>
 </body>
 </html>
+```
+
+## 4. Project Structure
+```
+your-project/
+├── server.js
+├── package.json
+├── public/
+│   ├── index.html
+│   ├── manifest.json (your existing file)
+│   └── sw.js (your existing file)
+└── data/
+    └── shichen-data.json (created automatically)
