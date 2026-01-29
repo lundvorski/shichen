@@ -7,7 +7,7 @@
     
     <link rel="manifest" href="manifest.json">
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="mobile-web-app-status-bar-style" content="default">
+    <meta name="mobile-web-app-status-bar-style" content="black-translucent">
     
     <link id="favicon" rel="icon" type="image/png" href="">
     <style>
@@ -15,105 +15,154 @@
             --bg-color: #fcfcfc;
             --text-main: #2d2d2d;
             --bar-bg: #f0f0f0;
+            --glass: rgba(255, 255, 255, 0.85);
+            --shadow-subtle: rgba(0,0,0,0.1);
         }
 
-        /* OLED Dark Mode Support */
         @media (prefers-color-scheme: dark) {
             :root {
                 --bg-color: #000000;
                 --text-main: #ffffff;
                 --bar-bg: #1a1a1a;
+                --glass: rgba(20, 20, 20, 0.95);
+                --shadow-subtle: rgba(255,255,255,0.1);
             }
         }
 
         body, html {
-            height: 100%;
-            margin: 0;
+            height: 100%; margin: 0;
             background-color: var(--bg-color);
             color: var(--text-main);
-            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            overflow: hidden;
-            transition: background-color 0.5s ease;
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            display: flex; justify-content: center; align-items: center;
+            overflow: hidden; transition: background-color 0.8s ease;
         }
 
         .container {
-            width: 100%;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
+            width: 100%; display: flex; flex-direction: column; align-items: center; gap: 1rem;
         }
 
+        /* Progress Bar - Increased height slightly for better character framing */
         .progress-wrapper {
             position: relative;
-            width: 70vw; 
-            max-width: 1000px;
-            height: 28vh; 
+            width: 75vw; max-width: 1100px; height: 32vh; 
             background-color: var(--bar-bg);
-            border-radius: 40px;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            overflow: hidden;
-            box-shadow: 0 15px 50px rgba(0,0,0,0.1);
-        }
-
-        @media (max-width: 768px) {
-            .progress-wrapper { width: 92vw; height: 22vh; border-radius: 30px; }
-            .shichen-char { font-size: 6rem !important; }
-            .western-time { letter-spacing: 6px !important; font-size: 2.5rem !important; }
+            border-radius: 50px;
+            display: flex; justify-content: center; align-items: center;
+            overflow: hidden; cursor: pointer;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.1);
         }
 
         .progress-fill {
-            position: absolute;
-            left: 0;
-            top: 0;
-            height: 100%;
-            width: 0%;
+            position: absolute; left: 0; top: 0; height: 100%; width: 0%;
             transition: width 1s linear, background-color 2s ease;
             z-index: 1;
         }
 
         .shichen-char {
-            font-size: clamp(6rem, 15vw, 15rem);
-            z-index: 2;
-            position: relative;
-            font-weight: bold;
-            letter-spacing: -5px;
+            font-size: clamp(7rem, 18vw, 16rem);
+            z-index: 2; font-weight: bold; letter-spacing: -2px;
+            padding-bottom: 10px; /* Prevents bottom cutoff */
+            text-shadow: 0 2px 10px rgba(0,0,0,0.05);
         }
 
+        /* Clocks and Tasks - Enhanced Visibility */
         .western-time {
-            margin-top: 3rem;
-            font-size: clamp(1.5rem, 5vw, 4rem);
-            font-weight: 200;
-            letter-spacing: 10px;
-            opacity: 0.7;
+            font-size: clamp(2rem, 6vw, 4rem);
+            font-weight: 300; letter-spacing: 10px; opacity: 0.9;
+            text-shadow: 1px 1px 2px var(--shadow-subtle);
+        }
+
+        .current-task {
+            font-size: clamp(1.4rem, 4vw, 2.5rem); 
+            font-weight: 600;
+            letter-spacing: 4px;
+            background: rgba(128, 128, 128, 0.08);
+            padding: 10px 30px;
+            border-radius: 100px;
+            text-shadow: 0 1px 1px var(--shadow-subtle);
+        }
+
+        /* Schedule Drawer */
+        #schedule-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: var(--glass);
+            backdrop-filter: blur(25px); -webkit-backdrop-filter: blur(25px);
+            display: none; justify-content: center; align-items: center;
+            z-index: 10; cursor: pointer;
+        }
+
+        .schedule-table {
+            width: 90%; max-width: 600px;
+            border-collapse: separate; border-spacing: 0 8px;
+        }
+
+        .schedule-table td {
+            padding: 15px;
+            font-size: 1.3rem;
+            background: rgba(128, 128, 128, 0.05);
+        }
+
+        .schedule-table td:first-child {
+            border-radius: 12px 0 0 12px;
+            width: 80px; text-align: center;
+            background: rgba(0,0,0,0.05); /* Darker pocket for the pastel char */
+        }
+
+        .schedule-table td:last-child {
+            border-radius: 0 12px 12px 0;
+        }
+
+        .active-row td {
+            background: rgba(255, 157, 0, 0.15) !important;
+            border: 1px solid rgba(255, 157, 0, 0.3);
+            font-weight: bold;
+        }
+
+        @media (max-width: 768px) {
+            .progress-wrapper { width: 92vw; height: 25vh; border-radius: 35px; }
+            .shichen-char { font-size: 6.5rem !important; }
+            .western-time { letter-spacing: 4px; font-size: 2.2rem !important; }
+            .current-task { font-size: 1.3rem; padding: 8px 20px; }
         }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <div class="progress-wrapper">
+    <div class="progress-wrapper" onclick="toggleSchedule()">
         <div class="progress-fill" id="bar"></div>
         <div class="shichen-char" id="char">--</div>
     </div>
     <div class="western-time" id="clock">00:00:00</div>
+    <div class="current-task" id="task-now">...</div>
+</div>
+
+<div id="schedule-overlay" onclick="toggleSchedule()">
+    <table class="schedule-table" id="table-body">
+        </table>
 </div>
 
 <script>
-    // --- APP LOGIC ---
     const shichenData = [
-        { char: '子', color: '#a2b9d6' }, { char: '丑', color: '#92a3b5' },
-        { char: '寅', color: '#b5a2bd' }, { char: '卯', color: '#9ed9c4' },
-        { char: '辰', color: '#c9e3ac' }, { char: '巳', color: '#f7e7a1' },
-        { char: '午', color: '#ffcf96' }, { char: '未', color: '#f7b7a3' },
-        { char: '申', color: '#eec1ad' }, { char: '酉', color: '#d9a79e' },
-        { char: '戌', color: '#b5928d' }, { char: '亥', color: '#8e97b0' }
+        { char: '子', color: '#a2b9d6', task: '禮' },
+        { char: '丑', color: '#92a3b5', task: '休' },
+        { char: '寅', color: '#b5a2bd', task: '休' },
+        { char: '卯', color: '#9ed9c4', task: '禮、煉、茶' },
+        { char: '辰', color: '#c9e3ac', task: '背' },
+        { char: '巳', color: '#f7e7a1', task: '編' },
+        { char: '午', color: '#ffcf96', task: '編' },
+        { char: '未', color: '#f7b7a3', task: '人、憩' },
+        { char: '申', color: '#eec1ad', task: '論' },
+        { char: '酉', color: '#d9a79e', task: '藝' },
+        { char: '戌', color: '#b5928d', task: '項' },
+        { char: '亥', color: '#8e97b0', task: '經、煉' }
     ];
+
+    function toggleSchedule() {
+        const overlay = document.getElementById('schedule-overlay');
+        overlay.style.display = (overlay.style.display === 'flex') ? 'none' : 'flex';
+    }
 
     function updateFavicon(char, color) {
         const canvas = document.createElement('canvas');
@@ -121,14 +170,14 @@
         const ctx = canvas.getContext('2d');
         ctx.fillStyle = color;
         ctx.beginPath(); ctx.arc(32, 32, 30, 0, 2 * Math.PI); ctx.fill();
-        ctx.fillStyle = '#000000'; 
-        ctx.font = 'bold 44px sans-serif';
+        ctx.fillStyle = '#000000'; ctx.font = 'bold 44px sans-serif';
         ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
         ctx.fillText(char, 32, 34);
         document.getElementById('favicon').href = canvas.toDataURL('image/png');
     }
 
     let lastChar = "";
+
     function update() {
         const now = new Date();
         const h = now.getHours();
@@ -141,16 +190,17 @@
         if (current.char !== lastChar) {
             updateFavicon(current.char, current.color);
             lastChar = current.char;
+            renderTable(index);
         }
 
         let startHour = (index * 2) - 1;
         if (startHour === -1) startHour = 23;
         let hoursSinceStart = h - startHour;
         if (hoursSinceStart < 0) hoursSinceStart += 24;
-
         const percent = (((hoursSinceStart * 3600) + (m * 60) + s) / 7200) * 100;
 
         document.getElementById('char').innerText = current.char;
+        document.getElementById('task-now').innerText = current.task;
         const bar = document.getElementById('bar');
         bar.style.width = `${percent}%`;
         bar.style.backgroundColor = current.color;
@@ -160,12 +210,21 @@
         });
     }
 
+    function renderTable(activeIndex) {
+        const tableBody = document.getElementById('table-body');
+        tableBody.innerHTML = shichenData.map((d, i) => `
+            <tr class="${i === activeIndex ? 'active-row' : ''}">
+                <td style="color:${d.color}; text-shadow: 1px 1px 0px rgba(0,0,0,0.2);">${d.char}</td>
+                <td>${d.task}</td>
+            </tr>
+        `).join('');
+    }
+
     setInterval(update, 1000);
     update();
 
-    // --- SERVICE WORKER REGISTRATION ---
     if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('sw.js');
+        navigator.serviceWorker.register('sw.js').catch(() => {});
     }
 </script>
 </body>
