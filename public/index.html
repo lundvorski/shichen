@@ -2,488 +2,1028 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
     <title>時辰</title>
-    
+
     <link rel="manifest" href="manifest.json">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="mobile-web-app-status-bar-style" content="black-translucent">
-    
     <link id="favicon" rel="icon" type="image/png" href="">
+
     <style>
         :root {
-            --bg-color: #fcfcfc;
-            --text-main: #2d2d2d;
+            --bg: #fcfcfc;
+            --fg: #2d2d2d;
             --bar-bg: #f0f0f0;
-            --glass: rgba(255, 255, 255, 0.85);
-            --shadow-subtle: rgba(0,0,0,0.1);
+            --glass: rgba(255,255,255,0.88);
+            --muted: rgba(128,128,128,0.18);
+            --muted-bg: rgba(128,128,128,0.05);
+            --accent-dim: rgba(255,157,0,0.18);
+            --green: rgba(72,168,88,0.8);
+            --green-bg: rgba(72,168,88,0.10);
         }
-
         @media (prefers-color-scheme: dark) {
             :root {
-                --bg-color: #000000;
-                --text-main: #ffffff;
+                --bg: #000000;
+                --fg: #ffffff;
                 --bar-bg: #1a1a1a;
-                --glass: rgba(20, 20, 20, 0.95);
-                --shadow-subtle: rgba(255,255,255,0.1);
+                --glass: rgba(18,18,18,0.95);
+                --muted: rgba(255,255,255,0.12);
+                --muted-bg: rgba(255,255,255,0.04);
+                --green-bg: rgba(72,168,88,0.14);
             }
         }
 
-        body, html {
+        *,*::before,*::after { box-sizing: border-box; }
+
+        body,html {
             height: 100%; margin: 0;
-            background-color: var(--bg-color);
-            color: var(--text-main);
+            background: var(--bg); color: var(--fg);
             font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
-            display: flex; justify-content: center; align-items: center;
-            overflow: hidden; transition: background-color 0.8s ease;
+            overflow: hidden;
+            transition: background 0.8s;
         }
 
-        .container {
-            width: 100%; display: flex; flex-direction: column; align-items: center; gap: 1rem;
+        /* ══ PAGES ══ */
+        .pages-container {
+            display: flex;
+            width: 100vw; height: 100vh;
+            overflow-x: scroll;
+            scroll-snap-type: x mandatory;
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: none;
+        }
+        .pages-container::-webkit-scrollbar { display: none; }
+
+        .page {
+            flex: 0 0 100vw;
+            width: 100vw; height: 100vh;
+            scroll-snap-align: start;
+            overflow: hidden;
         }
 
+        /* ══ PAGE 1: CLOCK ══ */
+        #p1 { display: flex; justify-content: center; align-items: center; }
+
+        .clock-container {
+            width: 100%;
+            display: flex; flex-direction: column; align-items: center; gap: 1rem;
+        }
         .progress-wrapper {
             position: relative;
-            width: 75vw; max-width: 1100px; height: 32vh; 
-            background-color: var(--bar-bg);
-            border-radius: 50px;
+            width: 75vw; max-width: 1100px; height: 32vh;
+            background: var(--bar-bg); border-radius: 50px;
             display: flex; justify-content: center; align-items: center;
             overflow: hidden; cursor: pointer;
             box-shadow: 0 20px 60px rgba(0,0,0,0.1);
         }
-
         .progress-fill {
             position: absolute; left: 0; top: 0; height: 100%; width: 0%;
-            transition: width 1s linear, background-color 2s ease;
-            z-index: 1;
+            transition: width 1s linear, background-color 2s ease; z-index: 1;
         }
-
         .shichen-char {
-            font-size: clamp(7rem, 18vw, 16rem);
-            z-index: 2; font-weight: bold; letter-spacing: -2px;
-            padding-bottom: 10px;
+            font-size: clamp(7rem,18vw,16rem);
+            z-index: 2; font-weight: bold; letter-spacing: -2px; padding-bottom: 10px;
             text-shadow: 0 2px 10px rgba(0,0,0,0.05);
         }
-
         .western-time {
-            font-size: clamp(2rem, 6vw, 4rem);
+            font-size: clamp(2rem,6vw,4rem);
             font-weight: 300; letter-spacing: 10px; opacity: 0.9;
-            text-shadow: 1px 1px 2px var(--shadow-subtle);
         }
-
+        .current-label {
+            font-size: clamp(1.4rem,4vw,2.5rem);
+            font-weight: 600; letter-spacing: 4px;
+            background: rgba(128,128,128,0.08);
+            padding: 10px 30px; border-radius: 100px;
+        }
         .current-task {
-            font-size: clamp(1.4rem, 4vw, 2.5rem); 
-            font-weight: 600;
-            letter-spacing: 4px;
-            background: rgba(128, 128, 128, 0.08);
-            padding: 10px 30px;
-            border-radius: 100px;
-            text-shadow: 0 1px 1px var(--shadow-subtle);
+            font-size: clamp(1rem,2.8vw,1.6rem);
+            font-weight: 400; letter-spacing: 3px;
+            opacity: 0.55; min-height: 1.8em;
         }
 
+        /* ══ SCHEDULE OVERLAY ══ */
         #schedule-overlay {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: var(--glass);
             backdrop-filter: blur(25px); -webkit-backdrop-filter: blur(25px);
-            display: none; justify-content: center; align-items: center;
-            z-index: 10;
+            display: none; justify-content: center; align-items: center; z-index: 50;
         }
-
         .schedule-content {
-            width: 90%; max-width: 600px;
-            max-height: 85vh;
-            position: relative;
-            display: flex;
-            flex-direction: column;
+            width: 90%; max-width: 680px; max-height: 85vh;
+            position: relative; display: flex; flex-direction: column;
         }
-
-        .button-group {
-            position: absolute;
-            top: -50px;
-            right: 0;
-            display: flex;
-            gap: 10px;
+        .overlay-buttons {
+            position: absolute; top: -50px; right: 0; display: flex; gap: 10px;
         }
-
-        .edit-button, .cancel-button {
-            background: rgba(128, 128, 128, 0.15);
-            border: none;
-            padding: 10px 20px;
-            border-radius: 20px;
-            cursor: pointer;
-            font-size: 1rem;
-            color: var(--text-main);
-            transition: background 0.3s;
+        .overlay-save-ind {
+            position: absolute; top: -50px; left: 0;
+            padding: 10px 20px; border-radius: 20px; font-size: 0.9rem;
+            opacity: 0; transition: opacity 0.3s;
+            background: rgba(100,200,100,0.2);
         }
-
-        .edit-button:hover, .cancel-button:hover {
-            background: rgba(128, 128, 128, 0.25);
-        }
-
-        .cancel-button {
-            display: none;
-            background: rgba(255, 100, 100, 0.2);
-        }
-
-        .save-indicator {
-            position: absolute;
-            top: -50px;
-            left: 0;
-            padding: 10px 20px;
-            border-radius: 20px;
-            font-size: 0.9rem;
-            opacity: 0;
-            transition: opacity 0.3s;
-            background: rgba(100, 200, 100, 0.2);
-        }
-
         .table-wrapper {
-            overflow-y: auto;
-            overflow-x: hidden;
-            max-height: calc(85vh - 20px);
-            padding-right: 5px;
+            overflow-y: auto; max-height: calc(85vh - 20px); padding-right: 5px;
         }
-
-        /* Custom scrollbar styling */
-        .table-wrapper::-webkit-scrollbar {
-            width: 8px;
+        .table-wrapper::-webkit-scrollbar { width: 8px; }
+        .table-wrapper::-webkit-scrollbar-track { background: rgba(128,128,128,0.1); border-radius: 10px; }
+        .table-wrapper::-webkit-scrollbar-thumb { background: rgba(128,128,128,0.3); border-radius: 10px; }
+        .overlay-table {
+            width: 100%; border-collapse: separate; border-spacing: 0 8px;
         }
-
-        .table-wrapper::-webkit-scrollbar-track {
-            background: rgba(128, 128, 128, 0.1);
-            border-radius: 10px;
+        .overlay-table td {
+            padding: 12px 14px; font-size: 1.2rem; background: var(--muted-bg);
         }
-
-        .table-wrapper::-webkit-scrollbar-thumb {
-            background: rgba(128, 128, 128, 0.3);
-            border-radius: 10px;
-        }
-
-        .table-wrapper::-webkit-scrollbar-thumb:hover {
-            background: rgba(128, 128, 128, 0.5);
-        }
-
-        .schedule-table {
-            width: 100%;
-            border-collapse: separate; 
-            border-spacing: 0 8px;
-        }
-
-        .schedule-table td {
-            padding: 15px;
-            font-size: 1.3rem;
-            background: rgba(128, 128, 128, 0.05);
-        }
-
-        .schedule-table td:first-child {
-            border-radius: 12px 0 0 12px;
-            width: 80px; text-align: center;
+        .overlay-table td:first-child {
+            border-radius: 12px 0 0 12px; width: 72px; text-align: center;
             background: rgba(0,0,0,0.05);
         }
+        .overlay-table td:nth-child(2) { width: 38%; }
+        .overlay-table td:last-child { border-radius: 0 12px 12px 0; }
+        .overlay-table .col-hint td {
+            background: transparent; padding: 0 14px 4px;
+            font-size: 0.68rem; letter-spacing: 3px; opacity: 0.4; font-weight: 700;
+        }
+        .overlay-table .col-hint td:first-child { background: transparent; }
+        .overlay-table input {
+            width: 100%; background: transparent; border: none;
+            font-size: 1.2rem; color: var(--fg); font-family: inherit; padding: 0;
+        }
+        .overlay-table input:focus {
+            outline: 2px solid rgba(255,157,0,0.5); border-radius: 4px; padding: 2px 4px;
+        }
+        .overlay-table .task-input {
+            font-size: 1rem; opacity: 0.72;
+        }
+        .overlay-active td {
+            background: rgba(255,157,0,0.15) !important;
+            border: 1px solid rgba(255,157,0,0.3); font-weight: bold;
+        }
+        .edit-button, .cancel-button {
+            background: rgba(128,128,128,0.15); border: none;
+            padding: 10px 20px; border-radius: 20px; cursor: pointer;
+            font-size: 1rem; color: var(--fg); font-family: inherit; transition: background 0.3s;
+        }
+        .edit-button:hover, .cancel-button:hover { background: rgba(128,128,128,0.25); }
+        .cancel-button { display: none; background: rgba(255,100,100,0.2); }
 
-        .schedule-table td:last-child {
-            border-radius: 0 12px 12px 0;
+        /* ══ PAGE 2: PLAN (flex — mission fixed, lists scroll) ══ */
+        #p2 { display: flex; flex-direction: column; }
+
+        .mission-header {
+            flex-shrink: 0;
+            padding: 46px 30px 20px;
+            border-bottom: 1px solid var(--muted);
+        }
+        .mission-header .inner { max-width: 600px; margin: 0 auto; }
+
+        .plan-body {
+            flex: 1; overflow-y: auto;
+            padding: 22px 30px 80px;
+        }
+        .plan-body .inner { max-width: 600px; margin: 0 auto; }
+
+        /* ══ COMMON CONTENT PAGE ══ */
+        .page-content { overflow-y: auto; padding: 50px 30px 80px; }
+        .inner { max-width: 600px; margin: 0 auto; }
+
+        /* ══ TYPOGRAPHY ══ */
+        .page-header {
+            font-size: 1rem; letter-spacing: 6px;
+            opacity: 0.7; margin-bottom: 18px; font-weight: 700;
+        }
+        .section-label {
+            font-size: 0.7rem; letter-spacing: 3px;
+            opacity: 0.55; margin-bottom: 10px; font-weight: 700;
+        }
+        .section { margin-bottom: 28px; }
+
+        /* ══ MISSION STATEMENT ══ */
+        .mission-text {
+            font-size: clamp(1rem,2.8vw,1.55rem);
+            line-height: 1.7; text-align: center;
+            padding: 10px 8px; cursor: text;
+            min-height: 48px; border-radius: 10px;
+            transition: background 0.2s;
+        }
+        .mission-text:focus {
+            outline: none; background: var(--muted-bg);
+        }
+        .mission-text:empty::before {
+            content: attr(data-ph); opacity: 0.22; pointer-events: none;
         }
 
-        .schedule-table input {
-            width: 100%;
-            background: transparent;
-            border: none;
-            font-size: 1.3rem;
-            color: var(--text-main);
-            font-family: inherit;
-            padding: 0;
+        /* ══ LIST ITEMS ══ */
+        .list-item-row {
+            display: flex; align-items: center; gap: 8px;
+            margin-bottom: 4px; padding: 4px 6px;
+            border-radius: 8px; transition: background 0.2s;
+        }
+        .list-item-row.hi   { background: var(--green-bg); }
+        .list-item-row.dragging { opacity: 0.3; }
+        .list-item-row.drag-over { outline: 2px solid rgba(255,157,0,0.45); outline-offset: 1px; }
+
+        .drag-handle {
+            cursor: grab; opacity: 0.22; font-size: 0.9rem;
+            user-select: none; flex-shrink: 0; padding: 2px 1px;
+            transition: opacity 0.2s; line-height: 1;
+        }
+        .drag-handle:hover { opacity: 0.55; }
+        .drag-handle:active { cursor: grabbing; }
+
+        .hi-check {
+            width: 13px; height: 13px; border-radius: 3px;
+            border: 1.5px solid var(--muted);
+            cursor: pointer; flex-shrink: 0;
+            transition: all 0.18s;
+        }
+        .hi-check.on { background: var(--green); border-color: var(--green); }
+
+        .list-input {
+            flex: 1; background: transparent; border: none;
+            border-bottom: 1px solid var(--muted);
+            color: var(--fg); font-family: inherit; font-size: 1rem;
+            padding: 6px 2px; transition: border-color 0.2s;
+        }
+        .list-input:focus { outline: none; border-bottom-color: rgba(255,157,0,0.45); }
+        .list-input::placeholder { opacity: 0.25; }
+
+        .delete-btn {
+            background: none; border: none; cursor: pointer;
+            opacity: 0.18; font-size: 1.1rem; padding: 4px 5px;
+            color: var(--fg); transition: opacity 0.2s; flex-shrink: 0; line-height: 1;
+        }
+        .delete-btn:hover { opacity: 0.5; }
+
+        .add-btn {
+            background: none; border: none; cursor: pointer;
+            font-size: 0.78rem; letter-spacing: 2px; color: var(--fg);
+            opacity: 0.35; padding: 8px 2px; font-family: inherit;
+            transition: opacity 0.2s; display: block;
+        }
+        .add-btn:hover { opacity: 0.7; }
+
+        /* ══ WEEKLY ROLES ══ */
+        .role-item {
+            margin-bottom: 16px; padding: 8px 6px 6px;
+            border-radius: 10px;
+            border-left: 2px solid var(--muted);
+        }
+        .role-header {
+            display: flex; align-items: center; gap: 8px;
+            margin-bottom: 6px;
+        }
+        .role-name-input {
+            flex: 1; background: transparent; border: none;
+            border-bottom: 1px solid var(--muted);
+            color: var(--fg); font-family: inherit; font-size: 1rem;
+            font-weight: 600; padding: 5px 2px;
+            transition: border-color 0.2s;
+        }
+        .role-name-input:focus { outline: none; border-bottom-color: rgba(255,157,0,0.45); }
+        .role-name-input::placeholder { opacity: 0.28; font-weight: 400; }
+
+        .role-goals { padding-left: 12px; }
+
+        .add-goal-btn {
+            margin-left: 12px; padding: 5px 2px;
         }
 
-        .schedule-table input:focus {
-            outline: 2px solid rgba(255, 157, 0, 0.5);
-            border-radius: 4px;
-            padding: 2px 4px;
+        /* ══ PAGE 3: ERRANDS ══ */
+        .errand-item {
+            display: flex; align-items: center; gap: 11px;
+            padding: 9px 6px; border-radius: 8px;
+            border-bottom: 1px solid var(--muted);
+            transition: background 0.2s; margin-bottom: 2px;
+        }
+        .errand-item.hi { background: var(--green-bg); border-bottom-color: transparent; }
+        .errand-item.dragging { opacity: 0.3; }
+        .errand-item.drag-over { outline: 2px solid rgba(255,157,0,0.45); outline-offset: 1px; }
+
+        .errand-text {
+            flex: 1; font-size: 1rem; background: transparent;
+            border: none; color: var(--fg); font-family: inherit; padding: 0;
+        }
+        .errand-text:focus { outline: none; }
+
+        .add-errand-row {
+            display: flex; align-items: center; gap: 10px; padding-top: 18px;
+        }
+        .new-errand-input {
+            flex: 1; background: transparent; border: none;
+            border-bottom: 1px solid var(--muted);
+            color: var(--fg); font-family: inherit; font-size: 1rem; padding: 8px 2px;
+        }
+        .new-errand-input:focus { outline: none; border-bottom-color: rgba(255,157,0,0.45); }
+        .new-errand-input::placeholder { opacity: 0.28; }
+
+        .add-circle-btn {
+            background: rgba(128,128,128,0.12); border: none;
+            width: 32px; height: 32px; border-radius: 50%; cursor: pointer;
+            font-size: 1.3rem; color: var(--fg);
+            display: flex; align-items: center; justify-content: center;
+            transition: background 0.2s; flex-shrink: 0;
+        }
+        .add-circle-btn:hover { background: rgba(128,128,128,0.22); }
+
+        /* ══ SAVE HINT ══ */
+        .save-hint {
+            position: fixed; top: 16px; right: 16px; font-size: 0.75rem;
+            opacity: 0; transition: opacity 0.3s;
+            background: rgba(100,200,100,0.15); padding: 6px 14px;
+            border-radius: 20px; pointer-events: none; z-index: 300;
         }
 
-        .active-row td {
-            background: rgba(255, 157, 0, 0.15) !important;
-            border: 1px solid rgba(255, 157, 0, 0.3);
-            font-weight: bold;
+        /* ══ PAGE DOTS ══ */
+        .page-dots {
+            position: fixed; bottom: 22px; left: 50%; transform: translateX(-50%);
+            display: flex; gap: 8px; z-index: 200;
         }
+        .dot {
+            width: 7px; height: 7px; border-radius: 50%;
+            background: rgba(128,128,128,0.25); cursor: pointer;
+            transition: background 0.3s, transform 0.3s;
+        }
+        .dot.active { background: rgba(255,157,0,0.75); transform: scale(1.4); }
 
+        /* ══ RESPONSIVE ══ */
         @media (max-width: 768px) {
             .progress-wrapper { width: 92vw; height: 25vh; border-radius: 35px; }
             .shichen-char { font-size: 6.5rem !important; }
             .western-time { letter-spacing: 4px; font-size: 2.2rem !important; }
-            .current-task { font-size: 1.3rem; padding: 8px 20px; }
-            
-            .schedule-content {
-                width: 92%;
-                max-height: 75vh;
-            }
-            
-            .button-group { 
-                top: -45px; 
-            }
-            
-            .edit-button, .cancel-button { 
-                font-size: 0.9rem; 
-                padding: 8px 16px; 
-            }
-            
-            .save-indicator {
-                font-size: 0.8rem;
-                padding: 8px 16px;
-            }
-            
-            .table-wrapper {
-                max-height: calc(75vh - 10px);
-            }
-            
-            .schedule-table td {
-                padding: 12px;
-                font-size: 1.1rem;
-            }
-            
-            .schedule-table input {
-                font-size: 1.1rem;
-            }
+            .current-label { font-size: 1.3rem; padding: 8px 20px; }
+            .mission-header { padding: 36px 20px 18px; }
+            .plan-body { padding: 18px 20px 70px; }
+            .page-content { padding: 40px 20px 70px; }
+            .schedule-content { width: 95%; max-height: 75vh; }
+            .overlay-buttons { top: -45px; }
+            .edit-button, .cancel-button { font-size: 0.9rem; padding: 8px 16px; }
+            .table-wrapper { max-height: calc(75vh - 10px); }
+            .overlay-table td { padding: 10px 10px; font-size: 1.05rem; }
+            .overlay-table input { font-size: 1.05rem; }
         }
-
         @media (max-height: 700px) {
-            .schedule-content {
-                max-height: 80vh;
-            }
-            
-            .table-wrapper {
-                max-height: calc(80vh - 10px);
-            }
+            .schedule-content { max-height: 80vh; }
+            .table-wrapper { max-height: calc(80vh - 10px); }
         }
     </style>
 </head>
 <body>
 
-<div class="container">
-    <div class="progress-wrapper" onclick="toggleSchedule()">
-        <div class="progress-fill" id="bar"></div>
-        <div class="shichen-char" id="char">--</div>
+<div class="pages-container" id="pages-container">
+
+    <!-- ══ PAGE 1: CLOCK ══ -->
+    <div class="page" id="p1">
+        <div class="clock-container">
+            <div class="progress-wrapper" id="progress-wrapper">
+                <div class="progress-fill" id="bar"></div>
+                <div class="shichen-char" id="char">--</div>
+            </div>
+            <div class="western-time" id="clock">00:00:00</div>
+            <div class="current-label" id="label-now">...</div>
+            <div class="current-task" id="task-now"></div>
+        </div>
     </div>
-    <div class="western-time" id="clock">00:00:00</div>
-    <div class="current-task" id="task-now">...</div>
+
+    <!-- ══ PAGE 2: 計劃 ══ -->
+    <div class="page" id="p2">
+        <!-- mission — stays fixed at top -->
+        <div class="mission-header">
+            <div class="inner">
+                <div class="page-header">計劃</div>
+                <div class="section-label">使命宣言</div>
+                <div class="mission-text" id="mission-text"
+                    contenteditable="true"
+                    data-ph="..."
+                    oninput="onMissionInput()"
+                    onblur="onMissionInput()">
+                </div>
+            </div>
+        </div>
+        <!-- lists — scroll independently -->
+        <div class="plan-body">
+            <div class="inner">
+                <div class="section">
+                    <div class="section-label">長期目標</div>
+                    <div id="longTermGoals-list"></div>
+                    <button class="add-btn" onclick="addListItem('longTermGoals')">+ 新增</button>
+                </div>
+                <div class="section">
+                    <div class="section-label">習慣養成</div>
+                    <div id="habits-list"></div>
+                    <button class="add-btn" onclick="addListItem('habits')">+ 新增</button>
+                </div>
+                <div class="section">
+                    <div class="section-label">每週角色</div>
+                    <div id="weeklyRoles-list"></div>
+                    <button class="add-btn" onclick="addRole()">+ 新增角色</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ══ PAGE 3: 待辦 ══ -->
+    <div class="page page-content" id="p3">
+        <div class="inner">
+            <div class="page-header">待辦</div>
+            <div id="errands-list"></div>
+            <div class="add-errand-row">
+                <input type="text" class="new-errand-input" id="new-errand-input"
+                    placeholder="新增待辦..."
+                    onkeydown="if(event.key==='Enter') addErrand()">
+                <button class="add-circle-btn" onclick="addErrand()">+</button>
+            </div>
+        </div>
+    </div>
+
 </div>
 
+<!-- OVERLAY: edit shichen labels + tasks -->
 <div id="schedule-overlay">
     <div class="schedule-content">
-        <div class="save-indicator" id="save-indicator">Saved ✓</div>
-        <div class="button-group">
-            <button class="cancel-button" id="cancel-btn" onclick="cancelEdit(event)">Cancel</button>
-            <button class="edit-button" id="edit-btn" onclick="toggleEdit(event)">Edit</button>
+        <div class="overlay-save-ind" id="overlay-save-ind">已儲存 ✓</div>
+        <div class="overlay-buttons">
+            <button class="cancel-button" id="cancel-btn" onclick="cancelEdit(event)">取消</button>
+            <button class="edit-button" id="edit-btn" onclick="toggleEdit(event)">編輯</button>
         </div>
         <div class="table-wrapper">
-            <table class="schedule-table" id="table-body"></table>
+            <table class="overlay-table" id="overlay-table"></table>
         </div>
     </div>
 </div>
 
+<!-- PAGE DOTS -->
+<div class="page-dots">
+    <span class="dot active" onclick="goToPage(0)"></span>
+    <span class="dot" onclick="goToPage(1)"></span>
+    <span class="dot" onclick="goToPage(2)"></span>
+</div>
+
+<div class="save-hint" id="save-hint">已儲存 ✓</div>
+
 <script>
-    let shichenData = [
-        { char: '子', color: '#a2b9d6', task: '禮' },
-        { char: '丑', color: '#92a3b5', task: '休' },
-        { char: '寅', color: '#b5a2bd', task: '休' },
-        { char: '卯', color: '#9ed9c4', task: '禮、煉、茶' },
-        { char: '辰', color: '#c9e3ac', task: '背' },
-        { char: '巳', color: '#f7e7a1', task: '編' },
-        { char: '午', color: '#ffcf96', task: '編' },
-        { char: '未', color: '#f7b7a3', task: '人、憩' },
-        { char: '申', color: '#eec1ad', task: '論' },
-        { char: '酉', color: '#d9a79e', task: '藝' },
-        { char: '戌', color: '#b5928d', task: '項' },
-        { char: '亥', color: '#8e97b0', task: '經、煉' }
+    // ════════════════════════════════
+    //  SHICHEN METADATA
+    // ════════════════════════════════
+    const shichenMeta = [
+        { char: '子', color: '#a2b9d6' },
+        { char: '丑', color: '#92a3b5' },
+        { char: '寅', color: '#b5a2bd' },
+        { char: '卯', color: '#9ed9c4' },
+        { char: '辰', color: '#c9e3ac' },
+        { char: '巳', color: '#f7e7a1' },
+        { char: '午', color: '#ffcf96' },
+        { char: '未', color: '#f7b7a3' },
+        { char: '申', color: '#eec1ad' },
+        { char: '酉', color: '#d9a79e' },
+        { char: '戌', color: '#b5928d' },
+        { char: '亥', color: '#8e97b0' }
     ];
 
-    let isEditing = false;
-    let originalData = [];
+    // ════════════════════════════════
+    //  APP DATA
+    //  planning lists:  { text, hi }
+    //  weeklyRoles:     { role, goals: [{text, hi}] }
+    //  errands:         { text, hi }
+    // ════════════════════════════════
+    let appData = {
+        labels:     ['禮','休','休','禮、煉、茶','背','編','編','人、憩','論','藝','項','經、煉'],
+        extraTasks: ['','','','','','','','','','','',''],
+        planning: {
+            missionStatement: '',
+            longTermGoals: [],
+            habits: [],
+            weeklyRoles: []
+        },
+        errands: []
+    };
 
-    // Load data from server
+    let isOverlayEditing = false;
+    let overlayOriginalLabels = [];
+    let saveTimeout = null;
+    let lastChar = '';
+    let dragState = null;
+
+    // ════════════════════════════════
+    //  LOAD & SAVE
+    // ════════════════════════════════
     async function loadData() {
         try {
-            const response = await fetch('/api/schedule');
-            const tasks = await response.json();
-            shichenData.forEach((item, i) => {
-                if (tasks[i] !== undefined) {
-                    item.task = tasks[i];
+            const res = await fetch('/api/data');
+            if (res.ok) {
+                const d = await res.json();
+
+                // labels (with old-format fallback)
+                if (d.labels && d.labels.length === 12)     appData.labels = d.labels;
+                else if (d.tasks && d.tasks.length === 12)  appData.labels = d.tasks;
+
+                // extra tasks
+                if (d.extraTasks && d.extraTasks.length === 12) appData.extraTasks = d.extraTasks;
+
+                if (d.planning) {
+                    const p = d.planning;
+                    appData.planning.missionStatement = p.missionStatement || '';
+
+                    // migrate string[] → {text,hi}[]
+                    appData.planning.longTermGoals = (p.longTermGoals || []).map(toTextHi);
+                    appData.planning.habits        = (p.habits        || []).map(toTextHi);
+
+                    // migrate old {role,goal,hi} or string → {role, goals:[{text,hi}]}
+                    appData.planning.weeklyRoles = (p.weeklyRoles || []).map(r => {
+                        if (typeof r === 'string') return { role: r, goals: [] };
+                        if (Array.isArray(r.goals)) {
+                            return { role: r.role || '', goals: r.goals.map(toTextHi) };
+                        }
+                        // old single-goal format
+                        const goals = r.goal ? [{ text: r.goal, hi: !!r.hi }] : [];
+                        return { role: r.role || '', goals };
+                    });
                 }
-            });
-            const index = getCurrentIndex();
-            renderTable(index);
-            update();
-        } catch (err) {
-            console.error('Error loading data:', err);
-        }
+
+                // errands: migrate {text,done} → {text,hi}
+                if (d.errands) {
+                    appData.errands = d.errands.map(e =>
+                        typeof e === 'string'
+                            ? { text: e, hi: false }
+                            : { text: e.text || '', hi: !!(e.hi ?? e.done) }
+                    );
+                }
+            }
+        } catch { console.warn('Could not load data.'); }
+
+        renderAll();
+        update();
     }
 
-    async function saveData() {
+    function toTextHi(item) {
+        if (typeof item === 'string') return { text: item, hi: false };
+        return { text: item.text || '', hi: !!item.hi };
+    }
+
+    function scheduleSave() {
+        clearTimeout(saveTimeout);
+        saveTimeout = setTimeout(persistData, 800);
+    }
+
+    async function persistData() {
+        const payload = {
+            labels:     appData.labels,
+            extraTasks: appData.extraTasks,
+            planning:   appData.planning,
+            errands:    appData.errands
+        };
         try {
-            const tasks = shichenData.map(d => d.task);
-            const response = await fetch('/api/schedule', {
+            const res = await fetch('/api/data', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(tasks)
+                body: JSON.stringify(payload)
             });
-            
-            if (response.ok) {
-                showSaveIndicator();
-            } else {
-                alert('Failed to save data');
-            }
-        } catch (err) {
-            console.error('Error saving data:', err);
-            alert('Failed to save data');
-        }
+            if (res.ok) showSaveHint();
+        } catch { console.error('Save failed'); }
     }
 
-    function showSaveIndicator() {
-        const indicator = document.getElementById('save-indicator');
-        indicator.style.opacity = '1';
-        setTimeout(() => {
-            indicator.style.opacity = '0';
-        }, 2000);
+    function showSaveHint() {
+        const el = document.getElementById('save-hint');
+        el.style.opacity = '1';
+        clearTimeout(el._t);
+        el._t = setTimeout(() => { el.style.opacity = '0'; }, 1800);
     }
 
-    function toggleSchedule() {
-        if (isEditing) return;
-        const overlay = document.getElementById('schedule-overlay');
-        overlay.style.display = (overlay.style.display === 'flex') ? 'none' : 'flex';
+    // ════════════════════════════════
+    //  RENDER ALL
+    // ════════════════════════════════
+    function renderAll() {
+        renderOverlayTable(getCurrentIndex());
+        renderPlanningPage();
+        renderErrandsPage();
     }
 
-    function toggleEdit(event) {
-        event.stopPropagation();
-        
-        if (!isEditing) {
-            // Start editing
-            isEditing = true;
-            originalData = shichenData.map(d => ({ ...d }));
-            const btn = document.getElementById('edit-btn');
-            const cancelBtn = document.getElementById('cancel-btn');
-            btn.textContent = 'Save';
-            btn.style.background = 'rgba(255, 157, 0, 0.3)';
-            cancelBtn.style.display = 'block';
-        } else {
-            // Save
-            isEditing = false;
-            const btn = document.getElementById('edit-btn');
-            const cancelBtn = document.getElementById('cancel-btn');
-            btn.textContent = 'Edit';
-            btn.style.background = 'rgba(128, 128, 128, 0.15)';
-            cancelBtn.style.display = 'none';
-            saveData();
-        }
-        
-        const index = getCurrentIndex();
-        renderTable(index);
-        update();
+    // ════════════════════════════════
+    //  NAVIGATION
+    // ════════════════════════════════
+    function goToPage(i) {
+        document.getElementById('pages-container')
+            .scrollTo({ left: i * window.innerWidth, behavior: 'smooth' });
     }
 
-    function cancelEdit(event) {
-        event.stopPropagation();
-        isEditing = false;
-        
-        // Restore original data
-        shichenData = originalData.map(d => ({ ...d }));
-        
-        const btn = document.getElementById('edit-btn');
-        const cancelBtn = document.getElementById('cancel-btn');
-        btn.textContent = 'Edit';
-        btn.style.background = 'rgba(128, 128, 128, 0.15)';
-        cancelBtn.style.display = 'none';
-        
-        const index = getCurrentIndex();
-        renderTable(index);
-        update();
-    }
+    document.getElementById('pages-container').addEventListener('scroll', function () {
+        const i = Math.round(this.scrollLeft / window.innerWidth);
+        document.querySelectorAll('.dot').forEach((d, idx) => d.classList.toggle('active', idx === i));
+    }, { passive: true });
 
-    function updateTask(index, value) {
-        shichenData[index].task = value;
+    // ════════════════════════════════
+    //  PAGE 1: CLOCK
+    // ════════════════════════════════
+    function getCurrentIndex() {
+        return Math.floor((new Date().getHours() + 1) / 2) % 12;
     }
 
     function updateFavicon(char, color) {
-        const canvas = document.createElement('canvas');
-        canvas.width = 64; canvas.height = 64;
-        const ctx = canvas.getContext('2d');
+        const c = document.createElement('canvas');
+        c.width = c.height = 64;
+        const ctx = c.getContext('2d');
         ctx.fillStyle = color;
-        ctx.beginPath(); ctx.arc(32, 32, 30, 0, 2 * Math.PI); ctx.fill();
-        ctx.fillStyle = '#000000'; ctx.font = 'bold 44px sans-serif';
+        ctx.beginPath(); ctx.arc(32,32,30,0,2*Math.PI); ctx.fill();
+        ctx.fillStyle = '#000'; ctx.font = 'bold 44px sans-serif';
         ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
         ctx.fillText(char, 32, 34);
-        document.getElementById('favicon').href = canvas.toDataURL('image/png');
-    }
-
-    let lastChar = "";
-
-    function getCurrentIndex() {
-        const now = new Date();
-        const h = now.getHours();
-        return Math.floor((h + 1) / 2) % 12;
+        document.getElementById('favicon').href = c.toDataURL('image/png');
     }
 
     function update() {
         const now = new Date();
-        const h = now.getHours();
-        const m = now.getMinutes();
-        const s = now.getSeconds();
+        const h = now.getHours(), m = now.getMinutes(), s = now.getSeconds();
+        const idx  = getCurrentIndex();
+        const meta = shichenMeta[idx];
 
-        let index = getCurrentIndex();
-        const current = shichenData[index];
-
-        if (current.char !== lastChar) {
-            updateFavicon(current.char, current.color);
-            lastChar = current.char;
-            if (!isEditing) {
-                renderTable(index);
-            }
+        if (meta.char !== lastChar) {
+            updateFavicon(meta.char, meta.color);
+            lastChar = meta.char;
+            if (!isOverlayEditing) renderOverlayTable(idx);
         }
 
-        let startHour = (index * 2) - 1;
-        if (startHour === -1) startHour = 23;
-        let hoursSinceStart = h - startHour;
-        if (hoursSinceStart < 0) hoursSinceStart += 24;
-        const percent = (((hoursSinceStart * 3600) + (m * 60) + s) / 7200) * 100;
+        let startH = (idx * 2) - 1;
+        if (startH < 0) startH = 23;
+        let since = h - startH;
+        if (since < 0) since += 24;
+        const pct = (((since * 3600) + (m * 60) + s) / 7200) * 100;
 
-        document.getElementById('char').innerText = current.char;
-        document.getElementById('task-now').innerText = current.task;
-        const bar = document.getElementById('bar');
-        bar.style.width = `${percent}%`;
-        bar.style.backgroundColor = current.color;
-        
+        document.getElementById('char').innerText      = meta.char;
+        document.getElementById('label-now').innerText = appData.labels[idx] || '·';
+        document.getElementById('task-now').innerText  = appData.extraTasks[idx] || '';
+        document.getElementById('bar').style.width           = `${pct}%`;
+        document.getElementById('bar').style.backgroundColor = meta.color;
         document.getElementById('clock').innerText = now.toLocaleTimeString('en-GB', {
             hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false
         });
     }
 
-    function renderTable(activeIndex) {
-        const tableBody = document.getElementById('table-body');
-        tableBody.innerHTML = shichenData.map((d, i) => `
-            <tr class="${i === activeIndex ? 'active-row' : ''}">
-                <td style="color:${d.color}; text-shadow: 1px 1px 0px rgba(0,0,0,0.2);">${d.char}</td>
-                <td>
-                    ${isEditing 
-                        ? `<input type="text" value="${d.task}" onchange="updateTask(${i}, this.value)" onclick="event.stopPropagation()">` 
-                        : d.task
-                    }
-                </td>
+    // overlay open/close
+    document.getElementById('progress-wrapper').addEventListener('click', () => {
+        if (isOverlayEditing) return;
+        const ov = document.getElementById('schedule-overlay');
+        ov.style.display = ov.style.display === 'flex' ? 'none' : 'flex';
+    });
+    document.getElementById('schedule-overlay').addEventListener('click', function (e) {
+        if (e.target === this && !isOverlayEditing) this.style.display = 'none';
+    });
+
+    function toggleEdit(e) {
+        e.stopPropagation();
+        if (!isOverlayEditing) {
+            isOverlayEditing = true;
+            overlayOriginalLabels = [...appData.labels];
+            document.getElementById('edit-btn').textContent = '儲存';
+            document.getElementById('edit-btn').style.background = 'rgba(255,157,0,0.28)';
+            document.getElementById('cancel-btn').style.display = 'block';
+        } else {
+            isOverlayEditing = false;
+            document.getElementById('edit-btn').textContent = '編輯';
+            document.getElementById('edit-btn').style.background = '';
+            document.getElementById('cancel-btn').style.display = 'none';
+            persistData();
+            const ind = document.getElementById('overlay-save-ind');
+            ind.style.opacity = '1';
+            clearTimeout(ind._t);
+            ind._t = setTimeout(() => { ind.style.opacity = '0'; }, 2000);
+        }
+        renderOverlayTable(getCurrentIndex());
+        update();
+    }
+
+    function cancelEdit(e) {
+        e.stopPropagation();
+        isOverlayEditing = false;
+        appData.labels = [...overlayOriginalLabels];
+        document.getElementById('edit-btn').textContent = '編輯';
+        document.getElementById('edit-btn').style.background = '';
+        document.getElementById('cancel-btn').style.display = 'none';
+        renderOverlayTable(getCurrentIndex());
+        update();
+    }
+
+    function renderOverlayTable(activeIdx) {
+        const hint = `<tr class="col-hint">
+            <td></td>
+            <td>時段</td>
+            <td>任務</td>
+        </tr>`;
+        const rows = shichenMeta.map((meta, i) => `
+            <tr class="${i === activeIdx ? 'overlay-active' : ''}">
+                <td style="color:${meta.color};text-shadow:1px 1px 0 rgba(0,0,0,0.2)">${meta.char}</td>
+                <td>${isOverlayEditing
+                    ? `<input type="text" value="${esc(appData.labels[i])}"
+                        onchange="appData.labels[${i}]=this.value;update()"
+                        onclick="event.stopPropagation()">`
+                    : esc(appData.labels[i])
+                }</td>
+                <td><input class="task-input" type="text"
+                    value="${esc(appData.extraTasks[i])}"
+                    placeholder="—"
+                    oninput="appData.extraTasks[${i}]=this.value;updateTaskOnClock(${i});scheduleSave()"
+                    onclick="event.stopPropagation()"></td>
             </tr>
+        `).join('');
+        document.getElementById('overlay-table').innerHTML = hint + rows;
+    }
+
+    function updateTaskOnClock(i) {
+        if (i === getCurrentIndex())
+            document.getElementById('task-now').innerText = appData.extraTasks[i] || '';
+    }
+
+    // ════════════════════════════════
+    //  PAGE 2: PLANNING
+    // ════════════════════════════════
+    function renderPlanningPage() {
+        const mEl = document.getElementById('mission-text');
+        if (document.activeElement !== mEl) {
+            mEl.textContent = appData.planning.missionStatement || '';
+        }
+        renderPlanningList('longTermGoals');
+        renderPlanningList('habits');
+        renderWeeklyRoles();
+    }
+
+    function onMissionInput() {
+        appData.planning.missionStatement =
+            document.getElementById('mission-text').innerText.trim();
+        scheduleSave();
+    }
+
+    // ── generic list (longTermGoals, habits) ──
+    const listPlaceholders = {
+        longTermGoals: '目標...',
+        habits:        '習慣...'
+    };
+
+    function renderPlanningList(key) {
+        const items = appData.planning[key] || [];
+        const ph    = listPlaceholders[key] || '...';
+        document.getElementById(`${key}-list`).innerHTML = items.map((item, i) => `
+            <div class="list-item-row ${item.hi ? 'hi' : ''}"
+                draggable="true"
+                ondragstart="onDragStart(event,'${key}',${i})"
+                ondragend="onDragEnd(event)"
+                ondragover="onDragOver(event,'${key}',${i})"
+                ondragleave="onDragLeave(event)"
+                ondrop="onDrop(event,'${key}',${i})">
+                <div class="drag-handle">⠿</div>
+                <div class="hi-check ${item.hi ? 'on' : ''}" onclick="toggleHi('${key}',${i})"></div>
+                <input class="list-input" type="text" value="${esc(item.text)}"
+                    placeholder="${ph}"
+                    oninput="updateListText('${key}',${i},this.value)"
+                    onkeydown="handleListKeydown(event,'${key}',${i})">
+                <button class="delete-btn" onclick="removeListItem('${key}',${i})">×</button>
+            </div>
         `).join('');
     }
 
-    document.getElementById('schedule-overlay').addEventListener('click', function(e) {
-        if (e.target === this && !isEditing) {
-            toggleSchedule();
-        }
-    });
+    function addListItem(key) {
+        if (!appData.planning[key]) appData.planning[key] = [];
+        appData.planning[key].push({ text: '', hi: false });
+        renderPlanningList(key);
+        const inputs = document.getElementById(`${key}-list`).querySelectorAll('.list-input');
+        if (inputs.length) inputs[inputs.length - 1].focus();
+        scheduleSave();
+    }
 
+    function removeListItem(key, i) {
+        appData.planning[key].splice(i, 1);
+        renderPlanningList(key);
+        scheduleSave();
+    }
+
+    function updateListText(key, i, val) {
+        appData.planning[key][i].text = val;
+        scheduleSave();
+    }
+
+    function toggleHi(key, i) {
+        appData.planning[key][i].hi = !appData.planning[key][i].hi;
+        renderPlanningList(key);
+        scheduleSave();
+    }
+
+    function handleListKeydown(e, key, i) {
+        if (e.key === 'Enter') { e.preventDefault(); addListItem(key); }
+        else if (e.key === 'Backspace' && e.target.value === '') {
+            e.preventDefault(); removeListItem(key, i);
+        }
+    }
+
+    // ── weekly roles ──
+    function renderWeeklyRoles() {
+        const roles = appData.planning.weeklyRoles || [];
+        document.getElementById('weeklyRoles-list').innerHTML = roles.map((role, ri) => `
+            <div class="role-item">
+                <div class="role-header">
+                    <input class="role-name-input" type="text" value="${esc(role.role)}"
+                        placeholder="角色..."
+                        oninput="appData.planning.weeklyRoles[${ri}].role=this.value;scheduleSave()"
+                        onkeydown="handleRoleKeydown(event,${ri})">
+                    <button class="delete-btn" onclick="removeRole(${ri})">×</button>
+                </div>
+                <div class="role-goals" id="roleGoals-${ri}">
+                    ${(role.goals || []).map((g, gi) => `
+                        <div class="list-item-row ${g.hi ? 'hi' : ''}"
+                            draggable="true"
+                            ondragstart="onDragStart(event,'rg${ri}',${gi})"
+                            ondragend="onDragEnd(event)"
+                            ondragover="onDragOver(event,'rg${ri}',${gi})"
+                            ondragleave="onDragLeave(event)"
+                            ondrop="onDrop(event,'rg${ri}',${gi})">
+                            <div class="drag-handle">⠿</div>
+                            <div class="hi-check ${g.hi ? 'on' : ''}" onclick="toggleGoalHi(${ri},${gi})"></div>
+                            <input class="list-input" type="text" value="${esc(g.text)}"
+                                placeholder="本週目標..."
+                                oninput="updateGoalText(${ri},${gi},this.value)"
+                                onkeydown="handleGoalKeydown(event,${ri},${gi})">
+                            <button class="delete-btn" onclick="removeGoal(${ri},${gi})">×</button>
+                        </div>
+                    `).join('')}
+                </div>
+                <button class="add-btn add-goal-btn" onclick="addGoal(${ri})">+ 新增目標</button>
+            </div>
+        `).join('');
+    }
+
+    function addRole() {
+        appData.planning.weeklyRoles.push({ role: '', goals: [] });
+        renderWeeklyRoles();
+        const inputs = document.getElementById('weeklyRoles-list').querySelectorAll('.role-name-input');
+        if (inputs.length) inputs[inputs.length - 1].focus();
+        scheduleSave();
+    }
+
+    function removeRole(ri) {
+        appData.planning.weeklyRoles.splice(ri, 1);
+        renderWeeklyRoles();
+        scheduleSave();
+    }
+
+    function handleRoleKeydown(e, ri) {
+        if (e.key === 'Enter') { e.preventDefault(); addGoal(ri); }
+        else if (e.key === 'Backspace' && e.target.value === '') {
+            e.preventDefault(); removeRole(ri);
+        }
+    }
+
+    // ── role goals ──
+    function addGoal(ri) {
+        const role = appData.planning.weeklyRoles[ri];
+        if (!role.goals) role.goals = [];
+        role.goals.push({ text: '', hi: false });
+        renderWeeklyRoles();
+        const container = document.getElementById(`roleGoals-${ri}`);
+        if (container) {
+            const inputs = container.querySelectorAll('.list-input');
+            if (inputs.length) inputs[inputs.length - 1].focus();
+        }
+        scheduleSave();
+    }
+
+    function removeGoal(ri, gi) {
+        appData.planning.weeklyRoles[ri].goals.splice(gi, 1);
+        renderWeeklyRoles();
+        scheduleSave();
+    }
+
+    function updateGoalText(ri, gi, val) {
+        appData.planning.weeklyRoles[ri].goals[gi].text = val;
+        scheduleSave();
+    }
+
+    function toggleGoalHi(ri, gi) {
+        const g = appData.planning.weeklyRoles[ri].goals[gi];
+        g.hi = !g.hi;
+        renderWeeklyRoles();
+        scheduleSave();
+    }
+
+    function handleGoalKeydown(e, ri, gi) {
+        if (e.key === 'Enter') { e.preventDefault(); addGoal(ri); }
+        else if (e.key === 'Backspace' && e.target.value === '') {
+            e.preventDefault(); removeGoal(ri, gi);
+        }
+    }
+
+    // ════════════════════════════════
+    //  PAGE 3: ERRANDS
+    // ════════════════════════════════
+    function renderErrandsPage() {
+        document.getElementById('errands-list').innerHTML = appData.errands.map((e, i) => `
+            <div class="errand-item ${e.hi ? 'hi' : ''}"
+                draggable="true"
+                ondragstart="onDragStart(event,'errands',${i})"
+                ondragend="onDragEnd(event)"
+                ondragover="onDragOver(event,'errands',${i})"
+                ondragleave="onDragLeave(event)"
+                ondrop="onDrop(event,'errands',${i})">
+                <div class="drag-handle">⠿</div>
+                <div class="hi-check ${e.hi ? 'on' : ''}" onclick="toggleErrandHi(${i})"></div>
+                <input class="errand-text" type="text" value="${esc(e.text)}"
+                    onchange="updateErrandText(${i},this.value)">
+                <button class="delete-btn" onclick="removeErrand(${i})">×</button>
+            </div>
+        `).join('');
+    }
+
+    function addErrand() {
+        const inp = document.getElementById('new-errand-input');
+        const txt = inp.value.trim();
+        if (!txt) return;
+        appData.errands.push({ text: txt, hi: false });
+        inp.value = '';
+        renderErrandsPage();
+        scheduleSave();
+    }
+
+    function toggleErrandHi(i) {
+        appData.errands[i].hi = !appData.errands[i].hi;
+        renderErrandsPage();
+        scheduleSave();
+    }
+
+    function updateErrandText(i, val) {
+        appData.errands[i].text = val;
+        scheduleSave();
+    }
+
+    function removeErrand(i) {
+        appData.errands.splice(i, 1);
+        renderErrandsPage();
+        scheduleSave();
+    }
+
+    // ════════════════════════════════
+    //  DRAG & DROP
+    // ════════════════════════════════
+    function getListForKey(key) {
+        if (key === 'errands') return appData.errands;
+        if (key.startsWith('rg')) {
+            const ri = parseInt(key.slice(2));
+            return appData.planning.weeklyRoles[ri].goals;
+        }
+        return appData.planning[key];
+    }
+
+    function onDragStart(e, key, idx) {
+        dragState = { key, idx };
+        e.dataTransfer.effectAllowed = 'move';
+        setTimeout(() => e.currentTarget && e.currentTarget.classList.add('dragging'), 0);
+    }
+
+    function onDragEnd(e) {
+        e.currentTarget.classList.remove('dragging');
+        document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+        dragState = null;
+    }
+
+    function onDragOver(e, key, idx) {
+        if (!dragState || dragState.key !== key || dragState.idx === idx) return;
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+        e.currentTarget.classList.add('drag-over');
+    }
+
+    function onDragLeave(e) {
+        if (!e.currentTarget.contains(e.relatedTarget))
+            e.currentTarget.classList.remove('drag-over');
+    }
+
+    function onDrop(e, key, idx) {
+        e.preventDefault();
+        e.currentTarget.classList.remove('drag-over');
+        if (!dragState || dragState.key !== key || dragState.idx === idx) return;
+        const list = getListForKey(key);
+        const [item] = list.splice(dragState.idx, 1);
+        list.splice(idx, 0, item);
+        dragState = null;
+        if (key === 'errands')           renderErrandsPage();
+        else if (key.startsWith('rg'))   renderWeeklyRoles();
+        else if (key === 'weeklyRoles')  renderWeeklyRoles();
+        else                             renderPlanningList(key);
+        scheduleSave();
+    }
+
+    // ════════════════════════════════
+    //  UTILS
+    // ════════════════════════════════
+    function esc(s) {
+        return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;')
+            .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    // ════════════════════════════════
+    //  START
+    // ════════════════════════════════
     loadData();
     setInterval(update, 1000);
     update();
 
-    if ('serviceWorker' in navigator) {
-        navigator.serviceWorker.register('sw.js').catch(() => {});
-    }
+    if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(()=>{});
 </script>
 </body>
 </html>
