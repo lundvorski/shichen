@@ -6,7 +6,10 @@ const app = express();
 app.use(express.json());
 app.use(express.static('public'));
 
-const DATA_FILE = path.join(__dirname, 'data', 'shichen-data.json');
+// DATA_DIR can be pointed to a Railway persistent volume.
+// In Railway dashboard: add a volume mounted at /data, then set env var DATA_DIR=/data
+const DATA_DIR  = process.env.DATA_DIR || path.join(__dirname, 'data');
+const DATA_FILE = path.join(DATA_DIR, 'shichen-data.json');
 
 const defaultData = {
     labels:     ['禮', '休', '休', '禮、煉、茶', '背', '編', '編', '人、憩', '論', '藝', '項', '經、煉'],
@@ -22,7 +25,7 @@ const defaultData = {
 
 async function initData() {
     try {
-        await fs.mkdir(path.join(__dirname, 'data'), { recursive: true });
+        await fs.mkdir(DATA_DIR, { recursive: true });
         try {
             await fs.access(DATA_FILE);
             // Migrate old array format to new object format

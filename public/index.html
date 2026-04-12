@@ -499,6 +499,7 @@
     };
 
     let isOverlayEditing = false;
+    let overlayInputFocused = false;   // true while any overlay input has focus → block bg-click close
     let overlayOriginalLabels = [];
     let saveTimeout = null;
     let lastChar = '';
@@ -665,7 +666,7 @@
         ov.style.display = ov.style.display === 'flex' ? 'none' : 'flex';
     });
     document.getElementById('schedule-overlay').addEventListener('click', function (e) {
-        if (e.target === this && !isOverlayEditing) this.style.display = 'none';
+        if (e.target === this && !isOverlayEditing && !overlayInputFocused) this.style.display = 'none';
     });
 
     function toggleEdit(e) {
@@ -703,6 +704,9 @@
     }
 
     function renderOverlayTable(activeIdx) {
+        const stop = 'event.stopPropagation();event.preventDefault();';
+        const focus = 'overlayInputFocused=true;';
+        const blur  = 'overlayInputFocused=false;';
         const hint = `<tr class="col-hint">
             <td></td>
             <td>時段</td>
@@ -713,15 +717,17 @@
                 <td style="color:${meta.color};text-shadow:1px 1px 0 rgba(0,0,0,0.2)">${meta.char}</td>
                 <td>${isOverlayEditing
                     ? `<input type="text" value="${esc(appData.labels[i])}"
-                        onchange="appData.labels[${i}]=this.value;update()"
-                        onclick="event.stopPropagation()">`
+                        oninput="appData.labels[${i}]=this.value;update()"
+                        onfocus="${focus}" onblur="${blur}"
+                        onmousedown="${stop}" onclick="${stop}">`
                     : esc(appData.labels[i])
                 }</td>
                 <td><input class="task-input" type="text"
                     value="${esc(appData.extraTasks[i])}"
                     placeholder="—"
                     oninput="appData.extraTasks[${i}]=this.value;updateTaskOnClock(${i});scheduleSave()"
-                    onclick="event.stopPropagation()"></td>
+                    onfocus="${focus}" onblur="${blur}"
+                    onmousedown="${stop}" onclick="${stop}"></td>
             </tr>
         `).join('');
         document.getElementById('overlay-table').innerHTML = hint + rows;
