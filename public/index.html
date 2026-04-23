@@ -59,6 +59,7 @@
             flex: 0 0 100vw;
             width: 100vw; height: 100vh;
             scroll-snap-align: start;
+            scroll-snap-stop: always;
             overflow: hidden;
         }
 
@@ -289,13 +290,80 @@
             margin-left: 12px; padding: 5px 2px;
         }
 
+        /* ══ SHICHEN TOGGLE BUTTON ══ */
+        .shichen-toggle-btn {
+            background: none; border: 1.5px solid var(--muted);
+            border-radius: 50%; width: 26px; height: 26px;
+            cursor: pointer; font-size: 0.72rem; color: var(--fg);
+            font-family: inherit; opacity: 0.32; flex-shrink: 0;
+            display: flex; align-items: center; justify-content: center;
+            transition: all 0.18s;
+        }
+        .shichen-toggle-btn:hover { opacity: 0.65; }
+        .shichen-toggle-btn.assigned {
+            border-color: rgba(255,157,0,0.65);
+            background: var(--accent-dim);
+            opacity: 1;
+        }
+
+        /* ══ SHICHEN CHIP PANEL (collapsible) ══ */
+        .shichen-selector {
+            display: flex; flex-wrap: wrap; gap: 5px;
+            padding: 6px 0 4px 2px;
+        }
+        .shichen-chip {
+            width: 28px; height: 28px; border-radius: 50%;
+            border: 1.5px solid var(--muted);
+            background: none; cursor: pointer;
+            font-size: 0.8rem; color: var(--fg);
+            font-family: inherit;
+            display: flex; align-items: center; justify-content: center;
+            transition: all 0.18s; flex-shrink: 0;
+        }
+        .shichen-chip.active {
+            background: var(--accent-dim);
+            border-color: rgba(255,157,0,0.7);
+        }
+
+        /* ══ ROLE DISPLAY (clock page) ══ */
+        .role-display {
+            margin-top: 10px; text-align: center;
+            max-width: 75vw; min-height: 0;
+        }
+        .role-display-block { margin-top: 6px; }
+        .role-display-name {
+            font-size: clamp(0.8rem, 2.2vw, 1rem);
+            letter-spacing: 3px; opacity: 0.62; font-weight: 600;
+        }
+        .role-display-tasks {
+            font-size: clamp(0.72rem, 1.8vw, 0.9rem);
+            opacity: 0.38; line-height: 1.9; margin-top: 2px;
+        }
+
+        /* ══ INLINE INSERT BUTTON (errands) ══ */
+        .insert-btn {
+            background: none; border: none; cursor: pointer;
+            opacity: 0.2; font-size: 1rem; padding: 2px 5px;
+            color: var(--fg); transition: opacity 0.2s; flex-shrink: 0; line-height: 1;
+        }
+        .insert-btn:hover { opacity: 0.55; }
+
         /* ══ PAGE 3: ERRANDS ══ */
         .errand-item {
-            display: flex; align-items: center; gap: 11px;
+            display: flex; align-items: flex-start; gap: 11px;
             padding: 9px 6px; border-radius: 8px;
             border-bottom: 1px solid var(--muted);
             transition: background 0.2s; margin-bottom: 2px;
         }
+        .errand-body {
+            flex: 1; display: flex; flex-direction: column; gap: 3px;
+            padding-top: 2px;
+        }
+        /* keep drag handle + checkbox vertically centred with the text row */
+        .errand-item > .drag-handle,
+        .errand-item > .hi-check,
+        .errand-item > .insert-btn,
+        .errand-item > .delete-btn { margin-top: 7px; }
         .errand-item.hi { background: var(--green-bg); border-bottom-color: transparent; }
         .errand-item.dragging { opacity: 0.3; }
         .errand-item.drag-over { outline: 2px solid rgba(255,157,0,0.45); outline-offset: 1px; }
@@ -382,6 +450,7 @@
             <div class="western-time" id="clock">00:00:00</div>
             <div class="current-label" id="label-now">...</div>
             <div class="current-task" id="task-now"></div>
+            <div id="role-display" class="role-display"></div>
         </div>
     </div>
 
@@ -504,6 +573,7 @@
     let saveTimeout = null;
     let lastChar = '';
     let dragState = null;
+    const shichenOpen = new Set(); // keys: 'role-0', 'errand-2' — tracks which panels are expanded
 
     // ════════════════════════════════
     //  LOAD & SAVE
@@ -529,24 +599,24 @@
                     appData.planning.longTermGoals = (p.longTermGoals || []).map(toTextHi);
                     appData.planning.habits        = (p.habits        || []).map(toTextHi);
 
-                    // migrate old {role,goal,hi} or string → {role, goals:[{text,hi}]}
+                    // migrate old {role,goal,hi} or string → {role, goals:[{text,hi}], shichen:[]}
                     appData.planning.weeklyRoles = (p.weeklyRoles || []).map(r => {
-                        if (typeof r === 'string') return { role: r, goals: [] };
+                        if (typeof r === 'string') return { role: r, goals: [], shichen: [] };
                         if (Array.isArray(r.goals)) {
-                            return { role: r.role || '', goals: r.goals.map(toTextHi) };
+                            return { role: r.role || '', goals: r.goals.map(toTextHi), shichen: r.shichen || [] };
                         }
                         // old single-goal format
                         const goals = r.goal ? [{ text: r.goal, hi: !!r.hi }] : [];
-                        return { role: r.role || '', goals };
+                        return { role: r.role || '', goals, shichen: [] };
                     });
                 }
 
-                // errands: migrate {text,done} → {text,hi}
+                // errands: migrate {text,done} → {text,hi,shichen:[]}
                 if (d.errands) {
                     appData.errands = d.errands.map(e =>
                         typeof e === 'string'
-                            ? { text: e, hi: false }
-                            : { text: e.text || '', hi: !!(e.hi ?? e.done) }
+                            ? { text: e, hi: false, shichen: [] }
+                            : { text: e.text || '', hi: !!(e.hi ?? e.done), shichen: e.shichen || [] }
                     );
                 }
             }
@@ -563,7 +633,7 @@
 
     function scheduleSave() {
         clearTimeout(saveTimeout);
-        saveTimeout = setTimeout(persistData, 800);
+        saveTimeout = setTimeout(persistData, 150);
     }
 
     async function persistData() {
@@ -657,6 +727,35 @@
         document.getElementById('clock').innerText = now.toLocaleTimeString('en-GB', {
             hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false
         });
+        renderRoleDisplay(idx);
+    }
+
+    function renderRoleDisplay(idx) {
+        const el = document.getElementById('role-display');
+        if (!el) return;
+
+        const roles = (appData.planning.weeklyRoles || [])
+            .filter(r => (r.shichen || []).includes(idx));
+        const errands = (appData.errands || [])
+            .filter(e => (e.shichen || []).includes(idx));
+
+        if (!roles.length && !errands.length) { el.innerHTML = ''; return; }
+
+        let html = roles.map(r => {
+            const checked = (r.goals || []).filter(g => g.hi);
+            return `<div class="role-display-block">
+                <div class="role-display-name">${esc(r.role)}</div>
+                ${checked.length ? `<div class="role-display-tasks">${checked.map(g => '· ' + esc(g.text)).join('<br>')}</div>` : ''}
+            </div>`;
+        }).join('');
+
+        if (errands.length) {
+            html += `<div class="role-display-block">
+                <div class="role-display-tasks" style="margin-top:${roles.length?'6px':'0'}">${errands.map(e => '◦ ' + esc(e.text)).join('<br>')}</div>
+            </div>`;
+        }
+
+        el.innerHTML = html;
     }
 
     // overlay open/close
@@ -828,7 +927,13 @@
                         placeholder="角色..."
                         oninput="appData.planning.weeklyRoles[${ri}].role=this.value;scheduleSave()"
                         onkeydown="handleRoleKeydown(event,${ri})">
+                    <button class="shichen-toggle-btn ${(role.shichen||[]).length?'assigned':''}"
+                        onclick="toggleShichenPanel('role',${ri})" title="分配時辰">時</button>
                     <button class="delete-btn" onclick="removeRole(${ri})">×</button>
+                </div>
+                <div class="shichen-selector" id="shichen-panel-role-${ri}"
+                    style="display:${shichenOpen.has(`role-${ri}`)? 'flex':'none'}">
+                    ${shichenMeta.map((m, si) => `<button class="shichen-chip ${(role.shichen||[]).includes(si)?'active':''}" onclick="toggleRoleShichen(${ri},${si})">${m.char}</button>`).join('')}
                 </div>
                 <div class="role-goals" id="roleGoals-${ri}">
                     ${(role.goals || []).map((g, gi) => `
@@ -854,8 +959,32 @@
         `).join('');
     }
 
+    function toggleShichenPanel(type, i) {
+        const key = `${type}-${i}`;
+        const panel = document.getElementById(`shichen-panel-${key}`);
+        if (!panel) return;
+        if (shichenOpen.has(key)) {
+            shichenOpen.delete(key);
+            panel.style.display = 'none';
+        } else {
+            shichenOpen.add(key);
+            panel.style.display = 'flex';
+        }
+    }
+
+    function toggleRoleShichen(ri, si) {
+        const role = appData.planning.weeklyRoles[ri];
+        if (!role.shichen) role.shichen = [];
+        const idx = role.shichen.indexOf(si);
+        if (idx === -1) role.shichen.push(si);
+        else role.shichen.splice(idx, 1);
+        renderWeeklyRoles();
+        renderRoleDisplay(getCurrentIndex());
+        scheduleSave();
+    }
+
     function addRole() {
-        appData.planning.weeklyRoles.push({ role: '', goals: [] });
+        appData.planning.weeklyRoles.push({ role: '', goals: [], shichen: [] });
         renderWeeklyRoles();
         const inputs = document.getElementById('weeklyRoles-list').querySelectorAll('.role-name-input');
         if (inputs.length) inputs[inputs.length - 1].focus();
@@ -928,18 +1057,48 @@
                 ondrop="onDrop(event,'errands',${i})">
                 <div class="drag-handle">⠿</div>
                 <div class="hi-check ${e.hi ? 'on' : ''}" onclick="toggleErrandHi(${i})"></div>
-                <input class="errand-text" type="text" value="${esc(e.text)}"
-                    onchange="updateErrandText(${i},this.value)">
+                <div class="errand-body">
+                    <div style="display:flex;align-items:center;gap:6px">
+                        <input class="errand-text" type="text" value="${esc(e.text)}"
+                            onchange="updateErrandText(${i},this.value)">
+                        <button class="shichen-toggle-btn ${(e.shichen||[]).length?'assigned':''}"
+                            onclick="toggleShichenPanel('errand',${i})" title="分配時辰">時</button>
+                    </div>
+                    <div class="shichen-selector" id="shichen-panel-errand-${i}"
+                        style="display:${shichenOpen.has(`errand-${i}`)? 'flex':'none'}">
+                        ${shichenMeta.map((m, si) => `<button class="shichen-chip ${(e.shichen||[]).includes(si)?'active':''}" onclick="toggleErrandShichen(${i},${si})">${m.char}</button>`).join('')}
+                    </div>
+                </div>
+                <button class="insert-btn" onclick="insertErrand(${i})" title="下方插入">+</button>
                 <button class="delete-btn" onclick="removeErrand(${i})">×</button>
             </div>
         `).join('');
+    }
+
+    function insertErrand(i) {
+        appData.errands.splice(i + 1, 0, { text: '', hi: false, shichen: [] });
+        renderErrandsPage();
+        const inputs = document.getElementById('errands-list').querySelectorAll('.errand-text');
+        if (inputs[i + 1]) inputs[i + 1].focus();
+        scheduleSave();
+    }
+
+    function toggleErrandShichen(i, si) {
+        const e = appData.errands[i];
+        if (!e.shichen) e.shichen = [];
+        const idx = e.shichen.indexOf(si);
+        if (idx === -1) e.shichen.push(si);
+        else e.shichen.splice(idx, 1);
+        renderErrandsPage();
+        renderRoleDisplay(getCurrentIndex());
+        scheduleSave();
     }
 
     function addErrand() {
         const inp = document.getElementById('new-errand-input');
         const txt = inp.value.trim();
         if (!txt) return;
-        appData.errands.push({ text: txt, hi: false });
+        appData.errands.push({ text: txt, hi: false, shichen: [] });
         inp.value = '';
         renderErrandsPage();
         scheduleSave();
